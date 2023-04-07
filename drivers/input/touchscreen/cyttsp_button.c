@@ -102,6 +102,7 @@ struct cyttsp_button_data {
 	struct notifier_block glove_mode_notif;
 	bool glove_mode;
 	bool enable_reversed_keys;
+	bool enable_capacitive_keys;
 };
 
 static int cyttsp_i2c_recv(struct device *dev,
@@ -595,7 +596,7 @@ static int cyttsp_button_input_enable(struct input_dev *in_dev)
 	struct device *dev = &data->client->dev;
 	int ret;
 
-	if (data->enable == true)
+	if (data->enable == true || data->enable_capacitive_keys == false)
 		return 0;
 
 	if (pdata->cut_off_power) {
@@ -1160,6 +1161,42 @@ static ssize_t cyttsp_reversed_keys_store(struct device *dev,
 	return count;
 }
 
+static ssize_t cyttsp_capacitive_keys_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct cyttsp_button_data *data = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%u\n",
+			data->enable_capacitive_keys);
+}
+
+static ssize_t cyttsp_capacitive_keys_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct cyttsp_button_data *data = dev_get_drvdata(dev);
+	int i, ret;
+
+	if (sscanf(buf, "%u", &i) == 1 && i < 2) {
+		data->enable_capacitive_keys = (i == 1);
+
+		if (data->enable_capacitive_keys == true) {
+                        ret = cyttsp_button_input_enable(data->input_dev);
+                        if (ret) {
+                                dev_err(dev, "Failed to enable button (enable_capacitive_keys)\n");
+			}
+		} else {
+                        ret = cyttsp_button_input_disable(data->input_dev);
+                        if (ret) {
+                                dev_err(dev, "Failed to disable button (enable_capacitive_keys)\n");
+			}
+		}
+	} else {
+		return -EINVAL;
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR(firmware_update, S_IWUSR, NULL, cyttsp_firmware_update_store);
 static DEVICE_ATTR(debug_enable, S_IWUSR | S_IRUSR, cyttsp_debug_enable_show,
 			cyttsp_debug_enable_store);
@@ -1167,6 +1204,8 @@ static DEVICE_ATTR(rawdata, S_IRUGO, cyttsp_rawdata_show, NULL);
 static DEVICE_ATTR(firmware_version, S_IRUGO, cyttsp_firmware_version_show, NULL);
 static DEVICE_ATTR(reversed_keys, S_IRUGO | S_IWUSR, cyttsp_reversed_keys_show,
 			cyttsp_reversed_keys_store);
+static DEVICE_ATTR(capacitive_keys, S_IRUGO | S_IWUSR, cyttsp_capacitive_keys_show,
+			cyttsp_capacitive_keys_store);
 
 static struct attribute *cyttsp_attrs[] = {
 	&dev_attr_firmware_update.attr,
@@ -1174,6 +1213,7 @@ static struct attribute *cyttsp_attrs[] = {
 	&dev_attr_rawdata.attr,
 	&dev_attr_firmware_version.attr,
 	&dev_attr_reversed_keys.attr,
+	&dev_attr_capacitive_keys.attr,
 	NULL
 };
 
@@ -1491,6 +1531,7 @@ static int cyttsp_button_probe(struct i2c_client *client,
 #endif
 
 	data->enable = true;
+	data->enable_capacitive_keys = true;
 
 	return 0;
 
