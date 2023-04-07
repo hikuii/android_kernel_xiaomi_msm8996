@@ -1225,7 +1225,7 @@ static int cyttsp_proc_init(struct kernfs_node *sysfs_node_parent)
 {
 	int ret = 0;
 	char *buf = NULL;
-	char *reversed_keys_sysfs_node;
+	char *reversed_keys_sysfs_node, *capacitive_keys_sysfs_node;
 	struct proc_dir_entry *proc_entry_buttons = NULL;
 	struct proc_dir_entry *proc_symlink_tmp  = NULL;
 
@@ -1249,8 +1249,19 @@ static int cyttsp_proc_init(struct kernfs_node *sysfs_node_parent)
 		pr_err("%s: Couldn't create reversed_keys_enable symlink\n", __func__);
 	}
 
+	capacitive_keys_sysfs_node = kzalloc(PATH_MAX, GFP_KERNEL);
+	if (capacitive_keys_sysfs_node)
+		sprintf(capacitive_keys_sysfs_node, "/sys%s/%s", buf, "capacitive_keys");
+	proc_symlink_tmp = proc_symlink("capacitive_keys_enable",
+			proc_entry_buttons, capacitive_keys_sysfs_node);
+	if (proc_symlink_tmp == NULL) {
+		ret = -ENOMEM;
+		pr_err("%s: Couldn't create capacitive_keys_enable symlink\n", __func__);
+	}
+
 	kfree(buf);
 	kfree(reversed_keys_sysfs_node);
+	kfree(capacitive_keys_sysfs_node);
 
 	return ret;
 }
